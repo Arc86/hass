@@ -1,0 +1,87 @@
+blueprint:
+  name: SML001 Sensitivity and Timeout
+  description: |
+    The basic occupancy sensor automation does the following:
+    The sets the sensor attributes when Home Assistant boots
+  domain: automation
+  input:
+    occupancy_entity:
+      name: Occupancy Sensor
+      description: "The occupancy sensor to use for this automation"
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: occupancy
+    ieee_id:
+      name: Occupancy Sensor Zigbee IEEE ID
+      description: "The zigbee network id of the sensor"
+      selector:
+        text:
+    o_to_u_delay:
+      name: Occupied to Unoccupied delay
+      description: |
+        Set the time in seconds we require the light(s) to stay on.
+        This delay is reset each time motion is detected.
+      default: 180
+      selector:
+        number:
+          min: 10
+          max: 600
+          step: 5
+          #mode: box
+          unit_of_measurement: "seconds"
+    sensitivity:
+      name: Sensitivity of sensor
+      description: |
+        Set how sensitive we want the sensor to be: 0 = least sensitive
+
+        NOTE: Restart Home Assistant on changing this value
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 2
+
+#
+# The automation
+#
+variables:
+  ieee_id: !input ieee_id
+
+# Trigger mode
+mode: single
+
+# Trigger
+trigger:
+  # When HA starts
+  - platform: homeassistant
+    event: start
+
+# Actions
+# TODO: Figure out how to get ieee address of sensor from entity
+action:
+  - alias: "What caused the trigger?"
+    choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ true }}"
+        sequence:
+          # Set device occupancy off delay
+          - service: zha.set_zigbee_cluster_attribute
+            data:
+              ieee: "{{ ieee_id }}"
+              endpoint_id: 2
+              cluster_id: 0x0406
+              cluster_type: in
+              attribute: 0x0010
+              value: !input o_to_u_delay
+          # Set device sensitivity
+          - service: zha.set_zigbee_cluster_attribute
+            data:
+              ieee: "{{ ieee_id }}"
+              endpoint_id: 2
+              cluster_id: 0x0406
+              cluster_type: in
+              attribute: 0x0030
+              value: !input sensitivity
+    default: []
